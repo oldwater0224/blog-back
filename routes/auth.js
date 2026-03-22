@@ -59,6 +59,7 @@ router.get("/kakao", async (req, res) => {
     `&redirect_uri=${encodeURIComponent(KAKAO_REDIRECT_URI)}`,
     "&response_type=code",
     "&scope=profile_nickname,profile_image",
+    // "&prompt=login", // 항상 로그인 화면 표시
   ].join("");
 
   res.redirect(kakaoAuthUrl);
@@ -95,6 +96,8 @@ router.get("/kakao/callback", async (req, res) => {
 
   const kakaoId = String(kakaoUser.data.id);
   const { profile } = kakaoUser.data.kakao_account;
+  // 콜백 로그
+  // console.log("카카오 프로필:" , JSON.stringify(profile, null , 2));
 
   // 사용자 조회 또는 생성
   let user = await User.findOne({ kakaoId });
@@ -108,7 +111,17 @@ router.get("/kakao/callback", async (req, res) => {
       nickname: profile.nickname,
       profileImage,
     });
+  }else {
+
+    // 기존 유저도 카카오 프로필 정보 동기화
+    user.nickname = profile.nickname;
+    if(profile.profile_image_url){
+      user.profileImage = profile.profile_image_url;
+    }
+    await user.save();
   }
+
+ 
 
   // JWT 발급
   const access = signAccess(user._id);
@@ -283,3 +296,4 @@ router.get("/connect", (req, res) => {
 });
 
 module.exports = router;
+
