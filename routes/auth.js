@@ -44,7 +44,7 @@ router.get("/kakao", async (req, res) => {
         return res.redirect(
           `${FRONTEND_URL}/auth/callback/kakao?access_token=${access}&email=${
             user.email ? "Y" : "N"
-          }`
+          }`,
         );
       }
     } catch {
@@ -86,7 +86,7 @@ router.get("/kakao/callback", async (req, res) => {
         redirect_uri: KAKAO_REDIRECT_URI,
         code,
       },
-    }
+    },
   );
 
   // 카카오 사용자 정보 조회
@@ -111,17 +111,14 @@ router.get("/kakao/callback", async (req, res) => {
       nickname: profile.nickname,
       profileImage,
     });
-  }else {
-
+  } else {
     // 기존 유저도 카카오 프로필 정보 동기화
     user.nickname = profile.nickname;
-    if(profile.profile_image_url){
+    if (profile.profile_image_url) {
       user.profileImage = profile.profile_image_url;
     }
     await user.save();
   }
-
- 
 
   // JWT 발급
   const access = signAccess(user._id);
@@ -138,7 +135,7 @@ router.get("/kakao/callback", async (req, res) => {
   res.redirect(
     `${FRONTEND_URL}/auth/callback/kakao?access_token=${access}&email=${
       user.email ? "Y" : "N"
-    }`
+    }`,
   );
 });
 
@@ -180,7 +177,7 @@ router.post("/refresh", async (req, res) => {
  */
 router.get("/me", auth, (req, res) => {
   const { _id, kakaoId, email, profileImage, nickname } = req.user;
-  return res.json({ id : _id, kakaoId, email, profileImage, nickname });
+  return res.json({ id: _id, kakaoId, email, profileImage, nickname });
 });
 
 /**
@@ -267,14 +264,25 @@ router.post("/login", async (req, res) => {
   }
 
   const user = await User.findOne({ email });
-  if (!user || !(await bcrypt.compare(password, user.password))) {
+  if (!user || !user.password) {
+    return res.status(401).json({ error: "인증 정보가 일치하지 않습니다" });
+  }
+  if (!user.password && user.kakaoId) {
+    return res
+      .status(409)
+      .json({
+        error:
+          "카카오 로그인으로 가입된 계정입니다. 카카오 로그인을 이용해주세요.",
+      });
+  }
+  if (!(await bcrypt.compare(password, user.password))) {
     return res.status(401).json({ error: "인증 정보가 일치하지 않습니다" });
   }
 
   const access = signAccess(user._id);
   const refresh = signRefresh(user._id);
   user.refreshTokens = user.refreshTokens.filter(
-    (t) => t !== req.cookies.refresh_token
+    (t) => t !== req.cookies.refresh_token,
   );
   user.refreshTokens.push(refresh);
   await user.save();
@@ -296,4 +304,3 @@ router.get("/connect", (req, res) => {
 });
 
 module.exports = router;
-
